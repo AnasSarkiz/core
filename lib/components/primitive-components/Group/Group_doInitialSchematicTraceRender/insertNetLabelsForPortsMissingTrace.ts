@@ -54,9 +54,25 @@ export const insertNetLabelsForPortsMissingTrace = ({
     if (existingAtPort) continue
 
     const text = sourceNet.name || sourceNet.source_net_id || key
-    const side =
-      getEnteringEdgeFromDirection((sp.facing_direction as any) || "right") ||
-      "right"
+    const facingDirection = (sp.facing_direction as any) || "right"
+    // Determine if we should use same-side or opposite-side logic
+    // Check if this is a vertical port (facing up/down) with positive Y coordinate
+    const isVerticalPort =
+      facingDirection === "up" || facingDirection === "down"
+    const hasPositiveY = sp.center.y > 0
+    const useSameSide = isVerticalPort && hasPositiveY
+
+    let side: "top" | "bottom" | "left" | "right"
+    if (useSameSide) {
+      // Use same-side logic for vertical ports with positive Y
+      if (facingDirection === "up") side = "top"
+      else if (facingDirection === "down") side = "bottom"
+      else if (facingDirection === "left") side = "left"
+      else side = "right"
+    } else {
+      // Use opposite-side logic (original behavior)
+      side = getEnteringEdgeFromDirection(facingDirection) || "right"
+    }
     const center = computeSchematicNetLabelCenter({
       anchor_position: sp.center,
       anchor_side: side as any,
@@ -67,7 +83,7 @@ export const insertNetLabelsForPortsMissingTrace = ({
       text,
       anchor_position: sp.center,
       center,
-      anchor_side: side as any,
+      anchor_side: side,
       ...(sourceNet.source_net_id
         ? { source_net_id: sourceNet.source_net_id }
         : {}),
